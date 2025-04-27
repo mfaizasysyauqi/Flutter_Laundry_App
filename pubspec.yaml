@@ -31,7 +31,7 @@ dependencies:
   flutter:
     sdk: flutter
   firebase_core: ^3.12.0
-  firebase_auth: ^5.5.0
+  firebase_auth: ^5.1.4
   cloud_firestore: ^5.6.4
   firebase_storage: ^12.4.4
   flutter_riverpod: ^2.6.1
@@ -41,7 +41,7 @@ dependencies:
   dartz: ^0.10.1
   # tflite_flutter: ^0.11.0
   tflite_flutter:
-    path: ./tflite_flutter-0.11.0
+    path: D:/Kuliah/Semester 6/aplikasi berbasis platform/tubes1/tflite_flutter-0.11.0
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
@@ -49,6 +49,8 @@ dependencies:
   intl: ^0.20.2
   firebase_ml_model_downloader: ^0.3.3+2
   permission_handler: ^11.4.0
+  firebase_app_check: ^0.3.2+4
+  logging: ^1.2.0
 
 dev_dependencies:
   flutter_test:
@@ -60,7 +62,6 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
-
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

@@ -1,4 +1,11 @@
-class ServerException implements Exception {}
+class ServerException implements Exception {
+  final String? message;
+
+  ServerException({this.message});
+
+  @override
+  String toString() => message ?? 'Server error occurred';
+}
 
 class CacheException implements Exception {}
 
@@ -17,3 +24,9 @@ class WrongPasswordException implements Exception {}
 class UserNotFoundException implements Exception {}
 
 class UniqueNameAlreadyInUseException implements Exception {}
+
+class NoInternetException implements Exception {
+  final String message;
+
+  NoInternetException({this.message = 'No internet connection'});
+}

@@ -3,10 +3,16 @@ buildscript {
         google()
         mavenCentral()
     }
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+            jvmTarget = "17"
+        }
+    }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.0' 
-        classpath 'com.google.gms:google-services:4.4.2' // Tambahkan ini
+        classpath 'com.android.tools.build:gradle:8.2.1'
         classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.20'
+        // FlutterFire (if needed)
+        classpath 'com.google.gms:google-services:4.3.15'
     }
 }
 

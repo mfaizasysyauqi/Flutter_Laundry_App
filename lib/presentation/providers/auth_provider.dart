@@ -1,31 +1,14 @@
-import 'package:flutter_laundry_app/core/config/firebase_config.dart';
+import 'package:flutter_laundry_app/core/error/failures.dart';
+import 'package:flutter_laundry_app/data/repositories/auth_repository_impl.dart';
+import 'package:flutter_laundry_app/domain/entities/user.dart';
+import 'package:flutter_laundry_app/domain/repositories/auth_repository.dart';
 import 'package:flutter_laundry_app/domain/usecases/auth/login_usecase.dart';
+import 'package:flutter_laundry_app/domain/usecases/auth/register_usecase.dart';
+import 'package:flutter_laundry_app/presentation/providers/core_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../domain/entities/user.dart';
-import '../../domain/usecases/auth/register_usecase.dart';
-import '../../core/error/failures.dart';
-import '../../domain/repositories/auth_repository.dart';
-import '../../data/repositories/auth_repository_impl.dart';
-import '../../data/datasources/remote/firebase_auth_remote_data_source.dart';
-import '../../core/network/network_info.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
-// Firebase dan network dependencies
-final firebaseAuthRemoteDataSourceProvider =
-    Provider<FirebaseAuthRemoteDataSource>((ref) {
-  final firebaseAuth = ref.watch(firebaseAuthProvider);
-  final firestore = ref.watch(firestoreProvider);
-  return FirebaseAuthRemoteDataSourceImpl(
-    firebaseAuth: firebaseAuth,
-    firestore: firestore,
-  );
-});
-
-final networkInfoProvider = Provider<NetworkInfo>((ref) {
-  final connectionChecker = ref.watch(connectionCheckerProvider);
-  return NetworkInfoImpl(connectionChecker);
-});
-
-// Auth repository implementation
+// Auth repository
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final remoteDataSource = ref.watch(firebaseAuthRemoteDataSourceProvider);
   final networkInfo = ref.watch(networkInfoProvider);
@@ -35,7 +18,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   );
 });
 
-// Register use case
+// Use cases
 final registerUseCaseProvider = Provider<RegisterUseCase>((ref) {
   final authRepository = ref.watch(authRepositoryProvider);
   return RegisterUseCase(authRepository);
@@ -53,14 +36,16 @@ class AuthState {
   final AuthStatus status;
   final User? user;
   final Failure? failure;
-  final String operationType; // Add this field
+  final String operationType;
 
   AuthState({
     this.status = AuthStatus.initial,
     this.user,
     this.failure,
-    this.operationType = '', // Default empty string
+    this.operationType = '',
   });
+
+  bool get isLoading => status == AuthStatus.loading;
 
   AuthState copyWith({
     AuthStatus? status,
@@ -81,13 +66,13 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final RegisterUseCase _registerUseCase;
   final LoginUseCase _loginUseCase;
-  bool _isProcessing = false; // Tambahkan flag untuk melacak proses
+  bool _isProcessing = false;
 
   AuthNotifier(this._registerUseCase, this._loginUseCase) : super(AuthState());
 
   void resetState() {
     state = AuthState();
-    _isProcessing = false; // Reset flag
+    _isProcessing = false;
   }
 
   Future<void> register({
@@ -160,9 +145,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 }
 
-// Auth provider
+// Providers
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final registerUseCase = ref.watch(registerUseCaseProvider);
   final loginUseCase = ref.watch(loginUseCaseProvider);
   return AuthNotifier(registerUseCase, loginUseCase);
+});
+
+final authStateProvider = StreamProvider<firebase_auth.User?>((ref) {
+  return ref.watch(firebaseAuthProvider).authStateChanges();
 });

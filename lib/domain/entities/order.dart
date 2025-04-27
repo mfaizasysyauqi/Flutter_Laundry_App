@@ -13,6 +13,7 @@ class Order {
   final DateTime? completedAt;
   final DateTime? cancelledAt;
   final DateTime? updatedAt;
+  final bool isHistory; // Add isHistory field
 
   Order({
     required this.id,
@@ -29,5 +30,6 @@ class Order {
     this.completedAt,
     this.cancelledAt,
     this.updatedAt,
+    this.isHistory = false, // Default to false
   });
 }

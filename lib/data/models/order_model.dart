@@ -17,6 +17,7 @@ class OrderModel extends Order {
     super.completedAt,
     super.cancelledAt,
     super.updatedAt,
+    super.isHistory, // Add isHistory
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json, String id) {
@@ -51,6 +52,7 @@ class OrderModel extends Order {
           json['cancelledAt'] != null ? getDateTime(json['cancelledAt']) : null,
       updatedAt:
           json['updatedAt'] != null ? getDateTime(json['updatedAt']) : null,
+      isHistory: json['isHistory'] as bool? ?? false, // Add isHistory
     );
   }
 
@@ -69,10 +71,10 @@ class OrderModel extends Order {
       'estimatedCompletion': Timestamp.fromDate(estimatedCompletion),
       'completedAt':
           completedAt != null ? Timestamp.fromDate(completedAt!) : null,
-      'cancelledAt': cancelledAt != null
-          ? Timestamp.fromDate(cancelledAt!)
-          : null, // Perbaiki typo dan logika
+      'cancelledAt':
+          cancelledAt != null ? Timestamp.fromDate(cancelledAt!) : null,
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      'isHistory': isHistory, // Add isHistory
     };
   }
 
@@ -92,10 +94,10 @@ class OrderModel extends Order {
       'completedAt': completedAt?.toIso8601String(),
       'cancelledAt': cancelledAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
+      'isHistory': isHistory, // Add isHistory
     };
   }
 
-  // Add fromEntity method to convert Order entity to OrderModel
   factory OrderModel.fromEntity(Order order) {
     return OrderModel(
       id: order.id,
@@ -112,10 +114,10 @@ class OrderModel extends Order {
       completedAt: order.completedAt,
       cancelledAt: order.cancelledAt,
       updatedAt: order.updatedAt,
+      isHistory: order.isHistory, // Add isHistory
     );
   }
 
-  // Updated copyWith to match the Order entity properties
   OrderModel copyWith({
     String? id,
     String? laundryUniqueName,
@@ -131,6 +133,7 @@ class OrderModel extends Order {
     DateTime? completedAt,
     DateTime? cancelledAt,
     DateTime? updatedAt,
+    bool? isHistory, // Add isHistory
   }) {
     return OrderModel(
       id: id ?? this.id,
@@ -147,10 +150,10 @@ class OrderModel extends Order {
       completedAt: completedAt ?? this.completedAt,
       cancelledAt: cancelledAt ?? this.cancelledAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isHistory: isHistory ?? this.isHistory, // Add isHistory
     );
   }
 
-  // Add equality operators (good practice for entity classes)
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -169,7 +172,8 @@ class OrderModel extends Order {
           estimatedCompletion == other.estimatedCompletion &&
           completedAt == other.completedAt &&
           cancelledAt == other.cancelledAt &&
-          updatedAt == other.updatedAt;
+          updatedAt == other.updatedAt &&
+          isHistory == other.isHistory; // Add isHistory
 
   @override
   int get hashCode => Object.hash(
@@ -187,5 +191,6 @@ class OrderModel extends Order {
         completedAt,
         cancelledAt,
         updatedAt,
+        isHistory, // Add isHistory
       );
 }

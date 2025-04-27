@@ -89,7 +89,8 @@ class AppTypography {
     color: TextColors.cancelActionTextColor,
     decoration: TextDecoration.underline,
     decorationColor: TextColors.cancelActionTextColor,
-    decorationThickness: TextDecorSizes.cancelUnderlineThickness, // Updated from 1.5
+    decorationThickness:
+        TextDecorSizes.cancelUnderlineThickness, // Updated from 1.5
     height: TextDecorSizes.cancelTextLineHeight, // Updated from 1.8
   );
 
@@ -131,5 +132,9 @@ class AppTypography {
     fontSize: TextSizes.generalText,
     fontWeight: bold,
     color: TextColors.highlightedText,
+  );
+  static const TextStyle bodyText = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.normal,
   );
 }

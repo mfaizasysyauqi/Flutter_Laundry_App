@@ -4,25 +4,26 @@ import 'package:flutter_laundry_app/presentation/style/colors/button_colors.dart
 import 'package:flutter_laundry_app/presentation/style/colors/text_colors.dart';
 import 'package:flutter_laundry_app/presentation/style/sizes/button_sizes.dart';
 
-
 class CustomButton extends StatelessWidget {
   final String text;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed; // Changed to nullable to handle disabled state
   final Color? color;
   final Color? textColor;
   final double height;
   final double width;
   final double borderRadius;
+  final bool isLoading; // Added isLoading parameter
 
   const CustomButton({
     super.key,
     required this.text,
-    required this.onPressed,
+    this.onPressed,
     this.color,
     this.textColor,
-    this.height = ButtonSizes.defaultHeight, // Use defined default
-    this.width = double.infinity, // Default width full
-    this.borderRadius = ButtonSizes.borderRadius, // Use defined default
+    this.height = ButtonSizes.defaultHeight,
+    this.width = double.infinity,
+    this.borderRadius = ButtonSizes.borderRadius,
+    this.isLoading = false,
   });
 
   @override
@@ -31,7 +32,7 @@ class CustomButton extends StatelessWidget {
       height: height,
       width: width,
       child: ElevatedButton(
-        onPressed: onPressed,
+        onPressed: isLoading ? null : onPressed, // Disable button when loading
         style: ElevatedButton.styleFrom(
           backgroundColor: color ?? ButtonColors.loadingIndicatorDefault,
           foregroundColor: textColor ?? TextColors.lightText,
@@ -40,10 +41,19 @@ class CustomButton extends StatelessWidget {
           ),
           minimumSize: Size(width, height),
         ),
-        child: Text(
-          text,
-          style: AppTypography.customButtonText, // Use defined typography
-        ),
+        child: isLoading
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(TextColors.lightText),
+                ),
+              )
+            : Text(
+                text,
+                style: AppTypography.customButtonText,
+              ),
       ),
     );
   }

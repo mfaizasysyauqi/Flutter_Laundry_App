@@ -6,7 +6,6 @@ import 'package:flutter_laundry_app/presentation/style/sizes/button_sizes.dart';
 import 'package:flutter_laundry_app/presentation/style/sizes/icon_sizes.dart';
 import 'package:flutter_laundry_app/presentation/style/sizes/padding_sizes.dart';
 import 'package:flutter_laundry_app/presentation/style/sizes/margin_sizes.dart';
-
 import 'package:flutter_laundry_app/presentation/widgets/common/app_logo_widget.dart';
 import 'package:flutter_laundry_app/presentation/widgets/common/custom_text.dart';
 import 'package:flutter_laundry_app/presentation/widgets/common/custom_text_form_field.dart';
@@ -81,7 +80,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Registration successful!',
+              'Registration successful! Please log in.',
               style: AppTypography.buttonText
                   .copyWith(color: TextColors.lightText),
             ),
@@ -90,12 +89,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         );
 
         if (mounted) {
-          // Navigasi ke SplashScreen dengan parameter tujuan
-          if (_roleController.text.trim() == 'Customer') {
-            context.go('/splash-screen?next=/user-dashboard-screen');
-          } else if (_roleController.text.trim() == 'Worker') {
-            context.go('/splash-screen?next=/admin-dashboard-screen');
-          }
+          // Navigate to LoginScreen after successful registration
+          context.go('/login-screen');
         }
       } else if (authState.status == AuthStatus.error &&
           authState.failure != null &&
@@ -115,47 +110,49 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     showModalBottomSheet(
       context: context,
       builder: (context) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: Icon(
-                    Icons.chevron_left,
-                    size: IconSizes.navigationIcon,
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.chevron_left,
+                      size: IconSizes.navigationIcon,
+                    ),
+                    onPressed: () => Navigator.pop(context),
                   ),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                Text(
-                  'Select Role',
-                  style: AppTypography.modalTitle,
-                ),
-                const SizedBox(width: 48),
-              ],
-            ),
-            ListTile(
-              leading: Icon(Icons.person, size: IconSizes.formIcon),
-              title: Text('Customer', style: AppTypography.label),
-              onTap: () {
-                setState(() {
-                  _roleController.text = 'Customer';
-                });
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.work, size: IconSizes.formIcon),
-              title: Text('Worker', style: AppTypography.label),
-              onTap: () {
-                setState(() {
-                  _roleController.text = 'Worker';
-                });
-                Navigator.pop(context);
-              },
-            ),
-          ],
+                  Text(
+                    'Select Role',
+                    style: AppTypography.modalTitle,
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+              ListTile(
+                leading: Icon(Icons.person, size: IconSizes.formIcon),
+                title: Text('Customer', style: AppTypography.label),
+                onTap: () {
+                  setState(() {
+                    _roleController.text = 'Customer';
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.work, size: IconSizes.formIcon),
+                title: Text('Worker', style: AppTypography.label),
+                onTap: () {
+                  setState(() {
+                    _roleController.text = 'Worker';
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
         );
       },
     );
@@ -170,11 +167,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(
-                height: MarginSizes.screenEdgeSpacing), // Updated from moderate
+            const SizedBox(height: MarginSizes.screenEdgeSpacing),
             const AppLogoWidget(),
-            const SizedBox(
-                height: MarginSizes.screenEdgeSpacing), // Updated from large
+            const SizedBox(height: MarginSizes.screenEdgeSpacing),
             Expanded(
               child: SingleChildScrollView(
                 child: Padding(
@@ -274,8 +269,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
               ),
             ),
-            const SizedBox(
-                height: MarginSizes.screenEdgeSpacing), // Updated from large
+            const SizedBox(height: MarginSizes.screenEdgeSpacing),
             CustomText(
               normalText: 'Already have an account? ',
               highlightedText: 'Log in',
@@ -283,8 +277,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 context.push('/login-screen');
               },
             ),
-            const SizedBox(
-                height: MarginSizes.screenEdgeSpacing), // Updated from large
+            const SizedBox(height: MarginSizes.screenEdgeSpacing),
           ],
         ),
       ),

@@ -1,59 +1,49 @@
+import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 import 'package:flutter_laundry_app/core/error/failures.dart';
+import 'package:flutter_laundry_app/data/datasources/remote/user_remote_data_source.dart';
 import 'package:flutter_laundry_app/data/repositories/user_repository_impl.dart';
 import 'package:flutter_laundry_app/domain/entities/user.dart';
+import 'package:flutter_laundry_app/domain/usecases/user/get_customer_usecase.dart';
+import 'package:flutter_laundry_app/domain/usecases/user/get_user_by_id_usecase.dart';
+import 'package:flutter_laundry_app/domain/usecases/user/get_user_by_unique_name_usecase.dart';
 import 'package:flutter_laundry_app/domain/usecases/user/get_user_usecase.dart';
 import 'package:flutter_laundry_app/domain/usecases/user/update_laundry_price_usecase.dart';
+import 'package:flutter_laundry_app/presentation/providers/core_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart' as auth;
-import 'package:cloud_firestore/cloud_firestore.dart' as fs;
-import 'package:flutter_laundry_app/data/datasources/remote/firebase_auth_remote_data_source.dart';
-import 'package:flutter_laundry_app/data/datasources/remote/firebase_database_remote_data_source.dart';
-import 'package:flutter_laundry_app/core/network/network_info.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
 
-// Firebase services
-final firebaseAuthProvider = Provider<auth.FirebaseAuth>((ref) {
-  return auth.FirebaseAuth.instance;
-});
-
-final firestoreProvider = Provider<fs.FirebaseFirestore>((ref) {
-  return fs.FirebaseFirestore.instance;
-});
-
-final networkInfoProvider = Provider<NetworkInfo>((ref) {
-  return NetworkInfoImpl(InternetConnectionChecker.createInstance());
-});
-
-// Data source providers
-final firebaseAuthRemoteDataSourceProvider =
-    Provider<FirebaseAuthRemoteDataSource>((ref) {
-  return FirebaseAuthRemoteDataSourceImpl(
-    firebaseAuth: ref.watch(firebaseAuthProvider),
-    firestore: ref.watch(firestoreProvider),
-  );
-});
-
-final firebaseDatabaseRemoteDataSourceProvider =
-    Provider<FirebaseDatabaseRemoteDataSource>((ref) {
-  return FirebaseDatabaseRemoteDataSourceImpl(
+// Data source
+final userRemoteDataSourceProvider = Provider<UserRemoteDataSource>((ref) {
+  return UserRemoteDataSourceImpl(
     firestore: ref.watch(firestoreProvider),
     firebaseAuth: ref.watch(firebaseAuthProvider),
   );
 });
 
-// Repository provider
+// Repository
 final userRepositoryProvider = Provider<UserRepositoryImpl>((ref) {
   return UserRepositoryImpl(
     authRemoteDataSource: ref.watch(firebaseAuthRemoteDataSourceProvider),
-    databaseRemoteDataSource:
-        ref.watch(firebaseDatabaseRemoteDataSourceProvider),
+    userRemoteDataSource: ref.watch(userRemoteDataSourceProvider),
     networkInfo: ref.watch(networkInfoProvider),
   );
 });
 
-// Use case providers
+// Use cases
 final getUserUseCaseProvider = Provider<GetUserUseCase>((ref) {
   return GetUserUseCase(ref.watch(userRepositoryProvider));
+});
+
+final getCustomersUseCaseProvider = Provider<GetCustomersUseCase>((ref) {
+  return GetCustomersUseCase(ref.watch(userRepositoryProvider));
+});
+
+final getUserByIdUseCaseProvider = Provider<GetUserByIdUseCase>((ref) {
+  return GetUserByIdUseCase(ref.watch(userRepositoryProvider));
+});
+
+final getUserByUniqueNameUseCaseProvider =
+    Provider<GetUserByUniqueNameUseCase>((ref) {
+  return GetUserByUniqueNameUseCase(ref.watch(userRepositoryProvider));
 });
 
 final updateLaundryPriceUseCaseProvider =
@@ -61,6 +51,7 @@ final updateLaundryPriceUseCaseProvider =
   return UpdateLaundryPriceUseCase(ref.watch(userRepositoryProvider));
 });
 
+// User state
 class UserState {
   final User? user;
   final bool isLoading;
@@ -85,6 +76,7 @@ class UserState {
   }
 }
 
+// User notifier
 class UserNotifier extends StateNotifier<UserState> {
   final GetUserUseCase _getUserUseCase;
   final UpdateLaundryPriceUseCase _updateLaundryPriceUseCase;
@@ -118,6 +110,7 @@ class UserNotifier extends StateNotifier<UserState> {
   }
 }
 
+// Providers
 final userProvider = StateNotifierProvider<UserNotifier, UserState>((ref) {
   final getUserUseCase = ref.watch(getUserUseCaseProvider);
   final updateLaundryPriceUseCase =
@@ -128,7 +121,25 @@ final userProvider = StateNotifierProvider<UserNotifier, UserState>((ref) {
   );
 });
 
-// Tambahkan provider ini
+final customersProvider = FutureProvider<List<User>>((ref) async {
+  final getCustomersUseCase = ref.watch(getCustomersUseCaseProvider);
+  final result = await getCustomersUseCase();
+  return result.fold(
+    (failure) => throw Exception('Failed to fetch customers: $failure'),
+    (customers) => customers,
+  );
+});
+
+final laundryUniqueNameProvider =
+    FutureProvider.family<String, String>((ref, laundryId) async {
+  final getUserByIdUseCase = ref.watch(getUserByIdUseCaseProvider);
+  final result = await getUserByIdUseCase(laundryId);
+  return result.fold(
+    (failure) => throw Exception('Failed to fetch laundry name: $failure'),
+    (user) => user.uniqueName,
+  );
+});
+
 final currentUserProvider = FutureProvider<User>((ref) async {
   final firebaseAuth = ref.watch(firebaseAuthProvider);
   final firestore = ref.watch(firestoreProvider);
@@ -146,15 +157,13 @@ final currentUserProvider = FutureProvider<User>((ref) async {
   }
 
   final data = userDoc.data()!;
-  
-  // Tangani createdAt yang bisa berupa String atau Timestamp
+
   DateTime createdAt;
   if (data['createdAt'] is fs.Timestamp) {
     createdAt = (data['createdAt'] as fs.Timestamp).toDate();
   } else if (data['createdAt'] is String) {
     createdAt = DateTime.parse(data['createdAt'] as String);
   } else {
-    // Jika createdAt tidak ada atau format tidak dikenali, gunakan default
     createdAt = DateTime.now();
   }
 
@@ -170,4 +179,30 @@ final currentUserProvider = FutureProvider<User>((ref) async {
     expressPrice: data['expressPrice'] as int? ?? 10000,
     createdAt: createdAt,
   );
+});
+
+final userRoleProvider = FutureProvider<String>((ref) async {
+  final user = ref.watch(firebaseAuthProvider).currentUser;
+  if (user == null) throw Exception('No user logged in');
+
+  final userDoc = await ref
+      .watch(firestoreProvider)
+      .collection('users')
+      .doc(user.uid)
+      .get();
+  if (!userDoc.exists) throw Exception('User data not found');
+  return userDoc['role'] as String;
+});
+
+final currentUserUniqueNameProvider = FutureProvider<String>((ref) async {
+  final user = ref.watch(firebaseAuthProvider).currentUser;
+  if (user == null) throw Exception('No user logged in');
+
+  final userDoc = await ref
+      .watch(firestoreProvider)
+      .collection('users')
+      .doc(user.uid)
+      .get();
+  if (!userDoc.exists) throw Exception('User data not found');
+  return userDoc['uniqueName'] as String;
 });

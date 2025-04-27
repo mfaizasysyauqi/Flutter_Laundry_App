@@ -18,10 +18,12 @@ class CustomTextFormField extends StatefulWidget {
   final TextInputAction? textInputAction;
   final String? Function(String?)? validator;
   final bool readOnly;
+  final bool enabled;
   final VoidCallback? onTap;
   final void Function(String?)? onSaved;
   final void Function(String)? onChanged;
   final List<TextInputFormatter>? inputFormatters;
+  final FocusNode? focusNode; // Added focusNode parameter
 
   const CustomTextFormField({
     super.key,
@@ -35,10 +37,12 @@ class CustomTextFormField extends StatefulWidget {
     this.textInputAction,
     this.validator,
     this.readOnly = false,
+    this.enabled = true,
     this.onTap,
     this.onSaved,
     this.onChanged,
     this.inputFormatters,
+    this.focusNode, // Include in constructor
   });
 
   @override
@@ -51,18 +55,19 @@ class CustomTextFormFieldState extends State<CustomTextFormField> {
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      onEnter: (_) => setState(() => isHovered = true),
-      onExit: (_) => setState(() => isHovered = false),
+      onEnter: widget.enabled ? (_) => setState(() => isHovered = true) : null,
+      onExit: widget.enabled ? (_) => setState(() => isHovered = false) : null,
       child: TextFormField(
         controller: widget.controller,
         obscureText: widget.obscureText,
         keyboardType: widget.keyboardType,
         textInputAction: widget.textInputAction,
         validator: widget.validator,
-        readOnly: widget.readOnly,
-        onTap: widget.onTap,
-        onChanged: widget.onChanged,
+        readOnly: widget.readOnly || !widget.enabled,
+        onTap: widget.enabled ? widget.onTap : null,
+        onChanged: widget.enabled ? widget.onChanged : null,
         inputFormatters: widget.inputFormatters,
+        focusNode: widget.focusNode, // Pass focusNode to TextFormField
         decoration: InputDecoration(
           hintText: widget.hintText,
           labelText: widget.labelText,
@@ -71,7 +76,9 @@ class CustomTextFormFieldState extends State<CustomTextFormField> {
               widget.prefixIcon != null ? Icon(widget.prefixIcon) : null,
           suffixIcon: widget.suffixIcon,
           filled: true,
-          fillColor: BackgroundColors.formFieldFill,
+          fillColor: widget.enabled
+              ? BackgroundColors.formFieldFill
+              : BackgroundColors.formFieldFill.withAlpha(128),
           contentPadding: const EdgeInsets.symmetric(
             vertical: PaddingSizes.formFieldVertical,
             horizontal: PaddingSizes.formFieldHorizontal,
@@ -86,7 +93,7 @@ class CustomTextFormFieldState extends State<CustomTextFormField> {
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(ButtonSizes.borderRadius),
             borderSide: BorderSide(
-              color: isHovered
+              color: isHovered && widget.enabled
                   ? BorderColors.focusedBorder
                   : BorderColors.defaultBorder,
               width: BorderSizes.thin,
@@ -97,6 +104,13 @@ class CustomTextFormFieldState extends State<CustomTextFormField> {
             borderSide: const BorderSide(
               color: BorderColors.focusedBorder,
               width: BorderSizes.medium,
+            ),
+          ),
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(ButtonSizes.borderRadius),
+            borderSide: const BorderSide(
+              color: BorderColors.disabledBorder,
+              width: BorderSizes.thin,
             ),
           ),
         ),

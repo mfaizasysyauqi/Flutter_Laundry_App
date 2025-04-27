@@ -1,3 +1,4 @@
+// Add this import for logging
 import 'package:flutter/material.dart';
 import 'package:flutter_laundry_app/presentation/style/colors/background_colors.dart';
 import 'package:flutter_laundry_app/presentation/style/sizes/button_sizes.dart';
@@ -65,6 +66,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final authState = ref.read(authProvider);
 
       if (authState.status == AuthStatus.success && mounted) {
+        // Log the user's role
+        final String role = authState.user!.role;
+        debugPrint('Login successful! User role: $role');
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Login successful!'),
@@ -73,8 +78,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
 
         if (mounted) {
-          final String? role = authState.user?.role;
-
           // Navigasi ke SplashScreen dengan parameter tujuan
           if (role == 'Customer') {
             context.go('/splash-screen?next=/user-dashboard-screen');
@@ -113,15 +116,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            SizedBox(
-                height: MarginSizes
-                    .screenEdgeSpacing), // Updated from screenEdgeSpacing (adjusted to PaddingSizes)
+            SizedBox(height: MarginSizes.screenEdgeSpacing),
             const AppLogoWidget(),
             const Spacer(),
             SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.all(
-                    PaddingSizes.formOuterPadding), // Updated from moderate
+                padding: const EdgeInsets.all(PaddingSizes.formOuterPadding),
                 child: Form(
                   key: _formKey,
                   child: SingleChildScrollView(
@@ -184,9 +184,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 context.push('/register-screen');
               },
             ),
-            const SizedBox(
-                height: MarginSizes
-                    .screenEdgeSpacing), // Updated from screenEdgeSpacing (adjusted to PaddingSizes)
+            const SizedBox(height: MarginSizes.screenEdgeSpacing),
           ],
         ),
       ),

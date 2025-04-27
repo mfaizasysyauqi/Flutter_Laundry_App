@@ -1,29 +1,78 @@
-// ignore_for_file: unused_result
-
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
-import 'package:dartz/dartz.dart';
+import 'package:dartz/dartz.dart' as dartz;
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter_laundry_app/core/error/failures.dart';
-import 'package:flutter_laundry_app/data/datasources/remote/firebase_database_remote_data_source.dart';
+import 'package:flutter_laundry_app/core/utils/order_number_generator.dart';
+import 'package:flutter_laundry_app/data/datasources/remote/order_remote_data_source.dart';
 import 'package:flutter_laundry_app/data/models/order_model.dart';
 import 'package:flutter_laundry_app/data/repositories/order_repository_impl.dart';
+import 'package:flutter_laundry_app/domain/entities/order.dart' as domain;
 import 'package:flutter_laundry_app/domain/repositories/order_repository.dart';
+import 'package:flutter_laundry_app/domain/usecases/order/create_order_usecase.dart';
+import 'package:flutter_laundry_app/domain/usecases/order/get_history_order_by_user_id_usecase.dart';
+import 'package:flutter_laundry_app/domain/usecases/order/get_orders_by_user_id_and_status_usecase.dart';
 import 'package:flutter_laundry_app/domain/usecases/order/predict_completion_time_usecase.dart';
+import 'package:flutter_laundry_app/presentation/providers/auth_provider.dart';
+import 'package:flutter_laundry_app/presentation/providers/core_provider.dart';
 import 'package:flutter_laundry_app/presentation/providers/user_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/utils/order_number_generator.dart';
-import '../../domain/entities/order.dart' as domain;
-import '../../domain/usecases/order/create_order_usecase.dart';
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
+// Data source
+final orderRemoteDataSourceProvider = Provider<OrderRemoteDataSource>((ref) {
+  final firestore = ref.watch(firestoreProvider);
+  final firebaseAuth = ref.watch(firebaseAuthProvider);
+  return OrderRemoteDataSourceImpl(
+    firestore: firestore,
+    firebaseAuth: firebaseAuth,
+  );
+});
+
+// Repository
+final orderRepositoryProvider = Provider<OrderRepository>((ref) {
+  final firestore = ref.watch(firestoreProvider);
+  final remoteDataSource = ref.watch(orderRemoteDataSourceProvider);
+  final networkInfo = ref.watch(networkInfoProvider);
+  return OrderRepositoryImpl(
+    firestore: firestore,
+    remoteDataSource: remoteDataSource,
+    networkInfo: networkInfo,
+  );
+});
+
+// Use cases
+final createOrderUseCaseProvider = Provider<CreateOrderUseCase>((ref) {
+  final repository = ref.read(orderRepositoryProvider);
+  return CreateOrderUseCase(repository);
+});
+
+final predictCompletionTimeUseCaseProvider =
+    Provider<PredictCompletionTimeUseCase>((ref) {
+  final repository = ref.read(orderRepositoryProvider);
+  return PredictCompletionTimeUseCase(repository);
+});
+
+final getOrdersByUserIdOrLaundryIdAndStatusUseCaseProvider =
+    Provider<GetOrdersByUserIdOrLaundryIdAndStatusUseCase>((ref) {
+  final repository = ref.read(orderRepositoryProvider);
+  return GetOrdersByUserIdOrLaundryIdAndStatusUseCase(repository);
+});
+
+final getHistoryOrdersByUserIdUseCaseProvider =
+    Provider<GetHistoryOrdersByUserIdUseCase>((ref) {
+  final repository = ref.read(orderRepositoryProvider);
+  return GetHistoryOrdersByUserIdUseCase(repository);
+});
+
+// Order state
 class OrderState {
   final bool isLoading;
-  final bool isLoadingPrediction; // Tambahkan properti ini
+  final bool isLoadingPrediction;
   final String? errorMessage;
   final DateTime? predictedCompletion;
 
   OrderState({
     this.isLoading = false,
-    this.isLoadingPrediction = false, // Default false
+    this.isLoadingPrediction = false,
     this.errorMessage,
     this.predictedCompletion,
   });
@@ -43,6 +92,7 @@ class OrderState {
   }
 }
 
+// Order notifier
 class OrderNotifier extends StateNotifier<OrderState> {
   final CreateOrderUseCase createOrderUseCase;
   final PredictCompletionTimeUseCase predictCompletionTimeUseCase;
@@ -80,8 +130,6 @@ class OrderNotifier extends StateNotifier<OrderState> {
       final user = await ref.read(currentUserProvider.future);
       final laundryUniqueName = user.uniqueName;
 
-      ref.read(orderRepositoryProvider);
-
       final order = domain.Order(
         id: id,
         laundryUniqueName: laundryUniqueName,
@@ -90,10 +138,11 @@ class OrderNotifier extends StateNotifier<OrderState> {
         clothes: clothes,
         laundrySpeed: laundrySpeed,
         vouchers: vouchers,
-        totalPrice: totalPrice,
         status: 'pending',
+        totalPrice: totalPrice,
         createdAt: DateTime.now(),
         estimatedCompletion: state.predictedCompletion ?? DateTime.now(),
+        isHistory: false,
       );
 
       final result = await createOrderUseCase(order);
@@ -118,7 +167,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
     }
   }
 
-  Future<Either<Failure, DateTime?>> predictCompletionTime({
+  Future<dartz.Either<Failure, DateTime?>> predictCompletionTime({
     required double weight,
     required int clothes,
     required String laundrySpeed,
@@ -137,6 +186,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
       status: 'pending',
       createdAt: DateTime.now(),
       estimatedCompletion: DateTime.now(),
+      isHistory: false,
     );
 
     final result = await predictCompletionTimeUseCase(orderModel);
@@ -185,83 +235,40 @@ final orderNotifierProvider =
   );
 });
 
-final predictCompletionTimeUseCaseProvider =
-    Provider<PredictCompletionTimeUseCase>((ref) {
-  final repository = ref.read(orderRepositoryProvider);
-  return PredictCompletionTimeUseCase(repository);
+final historyOrdersProvider = StreamProvider<List<domain.Order>>((ref) async* {
+  final authState = ref.watch(authStateProvider);
+  if (authState.value == null) {
+    yield [];
+    return;
+  }
+
+  final userId = authState.value!.uid;
+  final filter = ref.watch(orderFilterProvider);
+
+  final useCase = ref.read(getHistoryOrdersByUserIdUseCaseProvider);
+  final result = await useCase(userId);
+
+  yield* Stream.fromFuture(result.fold(
+    (failure) async => [],
+    (orders) async {
+      List<domain.Order> filteredOrders = orders;
+      if (filter == OrderFilter.completed) {
+        filteredOrders =
+            orders.where((order) => order.status == 'completed').toList();
+      } else if (filter == OrderFilter.cancelled) {
+        filteredOrders =
+            orders.where((order) => order.status == 'cancelled').toList();
+      } else {
+        filteredOrders = orders
+            .where((order) =>
+                order.status == 'completed' || order.status == 'cancelled')
+            .toList();
+      }
+      return filteredOrders;
+    },
+  ));
 });
 
-final firestoreProvider = Provider<firestore.FirebaseFirestore>((ref) {
-  return firestore.FirebaseFirestore.instance;
-});
-
-final firebaseAuthProvider = Provider<firebase_auth.FirebaseAuth>((ref) {
-  return firebase_auth.FirebaseAuth.instance;
-});
-
-final firebaseDatabaseRemoteDataSourceProvider =
-    Provider<FirebaseDatabaseRemoteDataSource>((ref) {
-  final firestore = ref.watch(firestoreProvider);
-  final firebaseAuth = ref.watch(firebaseAuthProvider);
-  return FirebaseDatabaseRemoteDataSourceImpl(
-    firestore: firestore,
-    firebaseAuth: firebaseAuth,
-  );
-});
-
-final orderRepositoryProvider = Provider<OrderRepository>((ref) {
-  final firestore = ref.watch(firestoreProvider);
-  final remoteDataSource = ref.watch(firebaseDatabaseRemoteDataSourceProvider);
-  return OrderRepositoryImpl(
-    firestore: firestore,
-    remoteDataSource: remoteDataSource,
-  );
-});
-
-final createOrderUseCaseProvider = Provider<CreateOrderUseCase>((ref) {
-  final repository = ref.read(orderRepositoryProvider);
-  return CreateOrderUseCase(repository);
-});
-
-// Order states
-enum OrderFilter { all, pending, processing, completed, cancelled }
-
-final orderFilterProvider = StateProvider<OrderFilter>((ref) {
-  return OrderFilter.all;
-});
-
-// Define currentUserUniqueNameProvider at the top level
-final currentUserUniqueNameProvider = FutureProvider<String>((ref) async {
-  final user = firebase_auth.FirebaseAuth.instance.currentUser;
-  if (user == null) throw Exception('No user logged in');
-
-  final userDoc = await firestore.FirebaseFirestore.instance
-      .collection('users')
-      .doc(user.uid)
-      .get();
-  if (!userDoc.exists) throw Exception('User data not found');
-  return userDoc['uniqueName'] as String;
-});
-
-// Add authStateProvider
-final authStateProvider = StreamProvider<firebase_auth.User?>((ref) {
-  return ref.watch(firebaseAuthProvider).authStateChanges();
-});
-
-// Add userRoleProvider
-final userRoleProvider = FutureProvider<String>((ref) async {
-  final user = firebase_auth.FirebaseAuth.instance.currentUser;
-  if (user == null) throw Exception('No user logged in');
-
-  final userDoc = await firestore.FirebaseFirestore.instance
-      .collection('users')
-      .doc(user.uid)
-      .get();
-  if (!userDoc.exists) throw Exception('User data not found');
-  return userDoc['role'] as String; // "customer" atau "admin"
-});
-
-// Customer Orders Provider
 final customerOrdersProvider = StreamProvider<List<domain.Order>>((ref) async* {
   final authState = ref.watch(authStateProvider);
   if (authState.value == null) {
@@ -272,9 +279,12 @@ final customerOrdersProvider = StreamProvider<List<domain.Order>>((ref) async* {
   final uniqueName = await ref.watch(currentUserUniqueNameProvider.future);
   final filter = ref.watch(orderFilterProvider);
 
-  var query = firestore.FirebaseFirestore.instance
+  firestore.Query<Map<String, dynamic>> query = firestore
+      .FirebaseFirestore.instance
       .collection('orders')
       .where('customerUniqueName', isEqualTo: uniqueName);
+
+  query = query.where('isHistory', isEqualTo: false);
 
   if (filter != OrderFilter.all) {
     query = query.where('status', isEqualTo: filter.name);
@@ -286,7 +296,6 @@ final customerOrdersProvider = StreamProvider<List<domain.Order>>((ref) async* {
       }).toList());
 });
 
-// Laundry Orders Provider
 final laundryOrdersProvider = StreamProvider<List<domain.Order>>((ref) async* {
   final authState = ref.watch(authStateProvider);
   if (authState.value == null) {
@@ -297,11 +306,17 @@ final laundryOrdersProvider = StreamProvider<List<domain.Order>>((ref) async* {
   final uniqueName = await ref.watch(currentUserUniqueNameProvider.future);
   final filter = ref.watch(orderFilterProvider);
 
-  var query = firestore.FirebaseFirestore.instance
+  firestore.Query<Map<String, dynamic>> query = firestore
+      .FirebaseFirestore.instance
       .collection('orders')
       .where('laundryUniqueName', isEqualTo: uniqueName);
 
-  if (filter != OrderFilter.all) {
+  query = query.where('isHistory', isEqualTo: false);
+
+  if (filter == OrderFilter.all) {
+    query =
+        query.where('status', whereIn: ['pending', 'processing', 'completed']);
+  } else {
     query = query.where('status', isEqualTo: filter.name);
   }
 
@@ -311,10 +326,15 @@ final laundryOrdersProvider = StreamProvider<List<domain.Order>>((ref) async* {
       }).toList());
 });
 
-// Order Actions Provider
 final orderActionsProvider = Provider<OrderActions>((ref) {
   final repository = ref.watch(orderRepositoryProvider);
   return OrderActions(repository: repository, ref: ref);
+});
+
+enum OrderFilter { all, pending, processing, completed, cancelled }
+
+final orderFilterProvider = StateProvider<OrderFilter>((ref) {
+  return OrderFilter.all;
 });
 
 class OrderActions {
@@ -326,17 +346,36 @@ class OrderActions {
   Future<void> updateOrderStatus(String orderId, String newStatus) async {
     final result =
         await repository.updateOrderStatusAndCompletion(orderId, newStatus);
-    result.fold(
-      (failure) => throw Exception(failure.message),
-      (_) {
+    await result.fold(
+      (failure) async => throw Exception(failure.message),
+      (_) async {
         final userRoleAsync = ref.read(userRoleProvider);
         if (userRoleAsync.hasValue) {
           final userRole = userRoleAsync.value;
-          if (userRole == 'admin') {
-            ref.refresh(laundryOrdersProvider);
+          if (userRole == 'Worker') {
+            var _ = ref.refresh(laundryOrdersProvider);
           } else {
-            ref.refresh(customerOrdersProvider);
+            var _ = ref.refresh(customerOrdersProvider);
           }
+        }
+      },
+    );
+  }
+
+  Future<void> setOrderAsHistory(String orderId) async {
+    final result = await repository.setOrderAsHistory(orderId);
+    await result.fold(
+      (failure) async => throw Exception(failure.message),
+      (_) async {
+        final userRoleAsync = ref.read(userRoleProvider);
+        if (userRoleAsync.hasValue) {
+          final userRole = userRoleAsync.value;
+          if (userRole == 'Worker') {
+            var _ = ref.refresh(laundryOrdersProvider);
+          } else {
+            var _ = ref.refresh(customerOrdersProvider);
+          }
+          var _ = ref.refresh(historyOrdersProvider);
         }
       },
     );
@@ -344,16 +383,16 @@ class OrderActions {
 
   Future<void> deleteOrder(String orderId) async {
     final result = await repository.deleteOrder(orderId);
-    result.fold(
-      (failure) => throw Exception(failure.message),
-      (_) {
+    await result.fold(
+      (failure) async => throw Exception(failure.message),
+      (_) async {
         final userRoleAsync = ref.read(userRoleProvider);
         if (userRoleAsync.hasValue) {
           final userRole = userRoleAsync.value;
-          if (userRole == 'admin') {
-            ref.refresh(laundryOrdersProvider);
+          if (userRole == 'Worker') {
+            var _ = ref.refresh(laundryOrdersProvider);
           } else {
-            ref.refresh(customerOrdersProvider);
+            var _ = ref.refresh(customerOrdersProvider);
           }
         }
       },

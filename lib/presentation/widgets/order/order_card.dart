@@ -11,6 +11,7 @@ import 'package:flutter_laundry_app/presentation/style/sizes/icon_sizes.dart';
 import 'package:flutter_laundry_app/presentation/style/sizes/margin_sizes.dart';
 import 'package:flutter_laundry_app/presentation/style/sizes/padding_sizes.dart';
 import 'package:flutter_laundry_app/presentation/style/sizes/text_sizes.dart';
+import 'package:flutter_laundry_app/presentation/widgets/common/loading_indicator.dart';
 import 'package:flutter_laundry_app/presentation/widgets/order/status_badge.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
@@ -120,7 +121,7 @@ class OrderCard extends ConsumerWidget {
                         placeholderBuilder: (context) => const SizedBox(
                           width: 70,
                           height: 70,
-                          child: CircularProgressIndicator(),
+                          child: LoadingIndicator(),
                         ),
                       ),
                     ),
@@ -200,18 +201,26 @@ class OrderCard extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: MarginSizes.cardElementSpacing),
-                    Text(
-                      formatTotalPrice(order.totalPrice),
-                      style: AppTypography.price.copyWith(
-                        fontSize: TextSizes.generalText,
-                      ),
+                    Column(
+                      children: [
+                        Text(
+                          formatTotalPrice(order.totalPrice),
+                          style: AppTypography.price.copyWith(
+                            fontSize: TextSizes.generalText,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (order.isHistory || !isAdmin) ...[
+                          StatusBadge(status: order.status),
+                        ],
+                      ],
                     ),
                   ],
                 ),
               ],
             ),
           ),
-          if (isAdmin) ...[
+          if (isAdmin && !order.isHistory) ...[
             const Padding(
               padding: EdgeInsets.symmetric(
                   horizontal: PaddingSizes.sectionTitlePadding),
@@ -255,7 +264,8 @@ class OrderCard extends ConsumerWidget {
                       if (order.status == 'cancelled')
                         IntrinsicWidth(
                           child: ElevatedButton(
-                            onPressed: null,
+                            onPressed: () =>
+                                _sendToHistory(context, orderActions),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: ButtonColors.cancelledOrder,
                               foregroundColor: ButtonColors.buttonTextColor,
@@ -301,7 +311,8 @@ class OrderCard extends ConsumerWidget {
                           order.status != 'processing')
                         IntrinsicWidth(
                           child: ElevatedButton(
-                            onPressed: null,
+                            onPressed: () =>
+                                _sendToHistory(context, orderActions),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: ButtonColors.sendToHistory,
                               foregroundColor: ButtonColors.buttonTextColor,
@@ -352,56 +363,6 @@ class OrderCard extends ConsumerWidget {
               ),
             ),
           ],
-          if (!isAdmin) ...[
-            const Padding(
-              padding: EdgeInsets.symmetric(
-                  horizontal: PaddingSizes.sectionTitlePadding),
-              child: Divider(height: 1, color: BorderColors.divider),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                vertical: PaddingSizes.contentContainerPadding,
-                horizontal: PaddingSizes.sectionTitlePadding,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Wrap(
-                    spacing: MarginSizes.cardElementSpacing,
-                    runSpacing: MarginSizes.cardElementSpacing,
-                    children: [
-                      if (order.status == 'cancelled' ||
-                          order.status == 'pending' ||
-                          order.status == 'processing' ||
-                          order.status == 'completed')
-                        IntrinsicWidth(
-                          child: ElevatedButton(
-                            onPressed: null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: ButtonColors.startProcessing,
-                              foregroundColor: ButtonColors.buttonTextColor,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                vertical: ButtonSizes.verticalPadding,
-                                horizontal: ButtonSizes.horizontalPadding,
-                              ),
-                            ),
-                            child: Text(
-                              'Send to History',
-                              style: AppTypography.buttonText,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(width: MarginSizes.cardElementSpacing),
-                  StatusBadge(status: order.status),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -422,6 +383,28 @@ class OrderCard extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to update order: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _sendToHistory(
+      BuildContext context, OrderActions actions) async {
+    try {
+      await actions.setOrderAsHistory(order.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Order sent to history'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text('Failed to send order to history: ${e.toString()}')),
         );
       }
     }

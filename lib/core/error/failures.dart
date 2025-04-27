@@ -46,11 +46,14 @@ class UniqueNameAlreadyInUseFailure extends Failure {
 
 class EmailNotFoundFailure extends Failure {
   EmailNotFoundFailure({String? message})
-      : super(
-            message: message ?? 'User not found');
+      : super(message: message ?? 'User not found');
 }
 
 class WrongPasswordFailure extends Failure {
   WrongPasswordFailure({String? message})
       : super(message: message ?? 'Password is incorrect');
+}
+
+class NoInternetFailure extends Failure {
+  NoInternetFailure() : super(message: 'No internet connection');
 }

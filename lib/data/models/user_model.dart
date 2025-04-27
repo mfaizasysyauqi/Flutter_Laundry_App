@@ -1,4 +1,5 @@
-import '../../domain/entities/user.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_laundry_app/domain/entities/user.dart';
 
 class UserModel extends User {
   UserModel({
@@ -25,7 +26,9 @@ class UserModel extends User {
       address: json['address'],
       regulerPrice: json['regulerPrice'] ?? 7000,
       expressPrice: json['expressPrice'] ?? 10000,
-      createdAt: DateTime.parse(json['createdAt']),
+      createdAt: json['createdAt'] is String
+          ? DateTime.parse(json['createdAt'])
+          : (json['createdAt'] as Timestamp).toDate(),
     );
   }
 
@@ -43,4 +46,17 @@ class UserModel extends User {
       'createdAt': createdAt.toIso8601String(),
     };
   }
+
+  User toEntity() => User(
+        id: id,
+        role: role,
+        fullName: fullName,
+        uniqueName: uniqueName,
+        email: email,
+        phoneNumber: phoneNumber,
+        address: address,
+        regulerPrice: regulerPrice,
+        expressPrice: expressPrice,
+        createdAt: createdAt,
+      );
 }

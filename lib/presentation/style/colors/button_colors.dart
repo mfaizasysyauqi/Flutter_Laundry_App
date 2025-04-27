@@ -15,5 +15,6 @@ class ButtonColors {
   static const Color orderComplete = Colors.amber; // Already renamed
   static const Color cancelledOrder =
       Colors.red; // Renamed from red for cancelled state
+  static const Color delete = Colors.redAccent;
   static const Color sendToHistory = Color(0xFF95BBE3);
 }
